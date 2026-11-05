@@ -1,3 +1,4 @@
+
 import express from "express";
 import { MongoClient, ObjectId } from "mongodb";
 import "dotenv/config";
@@ -28,8 +29,11 @@ const db = mongoClientConnection.db("social_events");
 const eventsCollection = db.collection("events");
 const joinsCollection = db.collection("joins");
 
-const toText = (value) => (typeof value === "string" ? value.trim() : "");
+const toText = (value) =>
+  typeof value === "string" ? value.trim() : "";
+
 const isDateString = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+
 const isRealDate = (value) =>
   !Number.isNaN(new Date(`${value}T00:00:00`).getTime());
 
@@ -58,8 +62,11 @@ function validateEventInput(body, { partial = false } = {}) {
     }
 
     const value = toText(body[field]);
+
     if (value.length < min || value.length > max) {
-      errors.push(`"${field}" must be between ${min} and ${max} characters.`);
+      errors.push(
+        `"${field}" must be between ${min} and ${max} characters.`,
+      );
       continue;
     }
 
@@ -70,8 +77,11 @@ function validateEventInput(body, { partial = false } = {}) {
     if (!partial) errors.push('"eventDate" is required.');
   } else {
     const value = toText(body.eventDate);
+
     if (!isDateString(value) || !isRealDate(value)) {
-      errors.push('"eventDate" must be a valid date in YYYY-MM-DD format.');
+      errors.push(
+        '"eventDate" must be a valid date in YYYY-MM-DD format.',
+      );
     } else if (value < todayString()) {
       errors.push('"eventDate" cannot be in the past.');
     } else {
@@ -100,7 +110,9 @@ app.get("/api/events", async (req, res) => {
       filter.creatorEmail = creatorEmail.trim().toLowerCase();
     }
 
-    const sortField = sort === "createdAt" ? "createdAt" : "eventDate";
+    const sortField =
+      sort === "createdAt" ? "createdAt" : "eventDate";
+
     const direction = order === "desc" ? -1 : 1;
 
     let cursor = eventsCollection
@@ -108,15 +120,20 @@ app.get("/api/events", async (req, res) => {
       .sort({ [sortField]: direction, createdAt: direction });
 
     const parsedLimit = Number.parseInt(String(limit ?? ""), 10);
+
     if (Number.isFinite(parsedLimit) && parsedLimit > 0) {
       cursor = cursor.limit(Math.min(parsedLimit, 100));
     }
 
     const events = await cursor.toArray();
+
     res.status(200).json(events);
   } catch (error) {
     console.error("Error fetching events:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -124,6 +141,7 @@ app.get("/api/events", async (req, res) => {
 app.post("/api/events", verifyJwt, async (req, res) => {
   try {
     const { data, errors } = validateEventInput(req.body);
+
     const creatorEmail = req.auth.email;
     const requestedEmail = toText(req.body.creatorEmail).toLowerCase();
 
@@ -134,7 +152,10 @@ app.post("/api/events", verifyJwt, async (req, res) => {
     }
 
     if (errors.length > 0) {
-      return res.status(400).json({ message: errors[0], errors });
+      return res.status(400).json({
+        message: errors[0],
+        errors,
+      });
     }
 
     const event = {
@@ -145,10 +166,17 @@ app.post("/api/events", verifyJwt, async (req, res) => {
     };
 
     const result = await eventsCollection.insertOne(event);
-    res.status(201).json({ ...event, _id: result.insertedId });
+
+    res.status(201).json({
+      ...event,
+      _id: result.insertedId,
+    });
   } catch (error) {
     console.error("Error creating event:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -158,19 +186,30 @@ app.get("/api/events/:id", async (req, res) => {
 
   try {
     const objectId = parseObjectId(id);
+
     if (!objectId) {
-      return res.status(400).json({ message: "Invalid event id." });
+      return res.status(400).json({
+        message: "Invalid event id.",
+      });
     }
 
-    const event = await eventsCollection.findOne({ _id: objectId });
+    const event = await eventsCollection.findOne({
+      _id: objectId,
+    });
+
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({
+        message: "Event not found",
+      });
     }
 
     res.json(event);
   } catch (error) {
     console.error("Error fetching event:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -180,49 +219,76 @@ app.patch("/api/events/:id", verifyJwt, async (req, res) => {
 
   try {
     const objectId = parseObjectId(id);
+
     if (!objectId) {
-      return res.status(400).json({ message: "Invalid event id." });
+      return res.status(400).json({
+        message: "Invalid event id.",
+      });
     }
 
-    const event = await eventsCollection.findOne({ _id: objectId });
+    const event = await eventsCollection.findOne({
+      _id: objectId,
+    });
+
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({
+        message: "Event not found",
+      });
     }
 
     const actorEmail = req.auth.email;
     const requestedEmail = toText(req.body.creatorEmail).toLowerCase();
 
     if (requestedEmail && requestedEmail !== actorEmail) {
-      return res
-        .status(403)
-        .json({ message: "You can only update events that you created." });
+      return res.status(403).json({
+        message: "You can only update events that you created.",
+      });
     }
 
     if (event.creatorEmail !== actorEmail) {
-      return res
-        .status(403)
-        .json({ message: "You can only update events that you created." });
+      return res.status(403).json({
+        message: "You can only update events that you created.",
+      });
     }
 
-    const { data, errors } = validateEventInput(req.body, { partial: true });
+    const { data, errors } = validateEventInput(req.body, {
+      partial: true,
+    });
+
     if (errors.length > 0) {
-      return res.status(400).json({ message: errors[0], errors });
+      return res.status(400).json({
+        message: errors[0],
+        errors,
+      });
     }
 
     if (Object.keys(data).length === 0) {
-      return res.status(400).json({ message: "No changes were provided." });
+      return res.status(400).json({
+        message: "No changes were provided.",
+      });
     }
 
     await eventsCollection.updateOne(
       { _id: objectId },
-      { $set: { ...data, updatedAt: new Date() } },
+      {
+        $set: {
+          ...data,
+          updatedAt: new Date(),
+        },
+      },
     );
 
-    const updatedEvent = await eventsCollection.findOne({ _id: objectId });
+    const updatedEvent = await eventsCollection.findOne({
+      _id: objectId,
+    });
+
     res.status(200).json(updatedEvent);
   } catch (error) {
     console.error("Error updating event:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -232,30 +298,48 @@ app.delete("/api/events/:id", verifyJwt, async (req, res) => {
 
   try {
     const objectId = parseObjectId(id);
+
     if (!objectId) {
-      return res.status(400).json({ message: "Invalid event id." });
+      return res.status(400).json({
+        message: "Invalid event id.",
+      });
     }
 
-    const event = await eventsCollection.findOne({ _id: objectId });
+    const event = await eventsCollection.findOne({
+      _id: objectId,
+    });
+
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({
+        message: "Event not found",
+      });
     }
 
     const actorEmail = req.auth.email;
 
     if (event.creatorEmail !== actorEmail) {
-      return res
-        .status(403)
-        .json({ message: "You can only delete events that you created." });
+      return res.status(403).json({
+        message: "You can only delete events that you created.",
+      });
     }
 
-    await eventsCollection.deleteOne({ _id: objectId });
-    await joinsCollection.deleteMany({ eventId: id });
+    await eventsCollection.deleteOne({
+      _id: objectId,
+    });
 
-    res.status(200).json({ deletedId: id });
+    await joinsCollection.deleteMany({
+      eventId: id,
+    });
+
+    res.status(200).json({
+      deletedId: id,
+    });
   } catch (error) {
     console.error("Error deleting event:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -266,6 +350,7 @@ app.post("/api/joins", verifyJwt, async (req, res) => {
     const userEmail = req.auth.email;
     const userName = toText(req.body.userName) || req.auth.name;
     const userId = req.auth.userId;
+
     const requestedEmail = toText(req.body.userEmail).toLowerCase();
 
     if (requestedEmail && requestedEmail !== userEmail) {
@@ -275,24 +360,38 @@ app.post("/api/joins", verifyJwt, async (req, res) => {
     }
 
     const objectId = parseObjectId(eventId);
+
     if (!objectId) {
-      return res.status(400).json({ message: "Invalid event id." });
+      return res.status(400).json({
+        message: "Invalid event id.",
+      });
     }
 
-    const event = await eventsCollection.findOne({ _id: objectId });
+    const event = await eventsCollection.findOne({
+      _id: objectId,
+    });
+
     if (!event) {
-      return res.status(404).json({ message: "Event not found" });
+      return res.status(404).json({
+        message: "Event not found",
+      });
     }
 
     if (event.eventDate < todayString()) {
-      return res
-        .status(400)
-        .json({ message: "This event has already taken place." });
+      return res.status(400).json({
+        message: "This event has already taken place.",
+      });
     }
 
-    const existingJoin = await joinsCollection.findOne({ eventId, userEmail });
+    const existingJoin = await joinsCollection.findOne({
+      eventId,
+      userEmail,
+    });
+
     if (existingJoin) {
-      return res.status(409).json({ message: "You have already joined this event." });
+      return res.status(409).json({
+        message: "You have already joined this event.",
+      });
     }
 
     const join = {
@@ -307,10 +406,17 @@ app.post("/api/joins", verifyJwt, async (req, res) => {
     };
 
     const result = await joinsCollection.insertOne(join);
-    res.status(201).json({ ...join, _id: result.insertedId });
+
+    res.status(201).json({
+      ...join,
+      _id: result.insertedId,
+    });
   } catch (error) {
     console.error("Error joining event:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -318,15 +424,26 @@ app.post("/api/joins", verifyJwt, async (req, res) => {
 app.get("/api/joins/count", async (req, res) => {
   try {
     const eventId = toText(req.query.eventId);
+
     if (!parseObjectId(eventId)) {
-      return res.status(400).json({ message: "Invalid event id." });
+      return res.status(400).json({
+        message: "Invalid event id.",
+      });
     }
 
-    const count = await joinsCollection.countDocuments({ eventId });
-    res.status(200).json({ count });
+    const count = await joinsCollection.countDocuments({
+      eventId,
+    });
+
+    res.status(200).json({
+      count,
+    });
   } catch (error) {
     console.error("Error counting joins:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -334,6 +451,7 @@ app.get("/api/joins/count", async (req, res) => {
 app.get("/api/joins", verifyJwt, async (req, res) => {
   try {
     const requestedEmail = toText(req.query.email).toLowerCase();
+
     const userEmail = requestedEmail || req.auth.email;
     const eventId = toText(req.query.eventId);
 
@@ -344,10 +462,14 @@ app.get("/api/joins", verifyJwt, async (req, res) => {
     }
 
     const filter = { userEmail };
+
     if (eventId) {
       if (!parseObjectId(eventId)) {
-        return res.status(400).json({ message: "Invalid event id." });
+        return res.status(400).json({
+          message: "Invalid event id.",
+        });
       }
+
       filter.eventId = eventId;
     }
 
@@ -362,22 +484,36 @@ app.get("/api/joins", verifyJwt, async (req, res) => {
       .filter(Boolean);
 
     const events = objectIds.length
-      ? await eventsCollection.find({ _id: { $in: objectIds } }).toArray()
+      ? await eventsCollection
+          .find({
+            _id: { $in: objectIds },
+          })
+          .toArray()
       : [];
 
-    const eventById = new Map(events.map((event) => [String(event._id), event]));
+    const eventById = new Map(
+      events.map((event) => [String(event._id), event]),
+    );
 
     const joinedEvents = joins
-      .map((join) => ({ ...join, event: eventById.get(join.eventId) }))
+      .map((join) => ({
+        ...join,
+        event: eventById.get(join.eventId),
+      }))
       .filter((join) => join.event)
       .sort((a, b) =>
-        String(a.event.eventDate).localeCompare(String(b.event.eventDate)),
+        String(a.event.eventDate).localeCompare(
+          String(b.event.eventDate),
+        ),
       );
 
     res.status(200).json(joinedEvents);
   } catch (error) {
     console.error("Error fetching joined events:", error);
-    res.status(500).json({ message: "Internal server error" });
+
+    res.status(500).json({
+      message: "Internal server error",
+    });
   }
 });
 
@@ -386,6 +522,12 @@ app.get("/", (req, res) => {
   res.send("Hello, World!");
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// Export Express app for Vercel
+export default app;
+
+// Start server locally only
+if (process.env.NODE_ENV !== "production") {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
